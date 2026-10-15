@@ -20,7 +20,7 @@ let LANG = (() => {
 const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 const STR = {
   ja: {
-    docTitle: '3億分の1', tag: '1 in 300M', h1: '3億分の1', lead: '一番乗りだけが、いのちになる。',
+    docTitle: '3億分の1', tag: 'ONLINE Sperm RACE', h1: '3億分の1', lead: '一番乗りだけが、いのちになる。',
     namePh: 'なまえ（14文字まで）', online: '発射', offline: '練習', connecting: '接続中…', leave: 'タイトルにもどる',
     langBtn: '🌐 English', press: '圧力', stam: 'ブースト（スペース / 左クリック長押し）', mute: '音のON/OFF（M）',
     fail: 'サーバにつながりませんでした。「練習」で遊べます', lost: 'サーバとの接続が切れました',
@@ -53,7 +53,7 @@ const STR = {
     winAsk: '🥇 1位の特権！世界にメッセージを残そう', msgPh: 'ひとこと（80文字まで）', post: '残す', skip: 'スキップ', thanks: 'メッセージを残しました！', from: c => `${c} から投稿`, unknown: '不明',
   },
   en: {
-    docTitle: '1 in 300M', tag: '3億分の1', h1: '1 in 300M', lead: 'Only the first one becomes a life.',
+    docTitle: '1 in 300M', tag: 'ONLINE Sperm RACE', h1: '1 in 300M', lead: 'Only the first one becomes a life.',
     namePh: 'Your name (max 14)', online: 'Launch', offline: 'Practice', connecting: 'Connecting…', leave: 'Back to title',
     langBtn: '🌐 日本語', press: 'PRESSURE', stam: 'Boost (Space / hold left click)', mute: 'Sound on/off (M)',
     fail: "Couldn't reach the server. You can still play \"Practice\".", lost: 'Disconnected from the server',
