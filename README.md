@@ -43,4 +43,9 @@ node server.js        # 127.0.0.1:3520 (PORT で変更可)
 - [Three.js](https://threejs.org/) (MIT)
 - Font: M PLUS Rounded 1c (Google Fonts, OFL)
 
-© 2026 satoru.net
+## ライセンス / License
+
+[MIT](LICENSE) © 2026 satoru.net
+
+ただし `se/` の効果音は OtoLogic の素材で、MIT ではなく CC BY 4.0 です（利用時はクレジット表記が必要）。
+The sound files in `se/` are by OtoLogic under CC BY 4.0, not MIT.
