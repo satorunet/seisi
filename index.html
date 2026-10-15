@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>3億分の1</title>
+<meta name="description" content="3億分の1。精子になって卵子を目指す3Dオンライン対戦レース。">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:site_name" content="3億分の1">
+<meta property="og:title" content="3億分の1">
+<meta property="og:description" content="一番乗りだけが、いのちになる。精子になって卵子を目指す、最大8人の3Dオンライン対戦レース。">
+<meta property="og:url" content="https://seisi.satoru.net/">
+<meta property="og:image" content="https://seisi.satoru.net/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="3億分の1">
+<meta name="twitter:description" content="一番乗りだけが、いのちになる。最大8人の3Dオンライン対戦レース。">
+<meta name="twitter:image" content="https://seisi.satoru.net/og.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--fg:#fff2f5;--muted:#e9b8c6;--accent:#ff5c8d;--panel:rgba(28,6,14,.78);--line:rgba(255,150,185,.28);--gold:#ffd166}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#1e0509;color:var(--fg);font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN",system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+canvas{display:block;position:fixed;inset:0;width:100vw!important;height:100vh!important}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:4;background:#fff;opacity:0}
+#mute{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:6;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:#fff;font-size:18px;cursor:pointer}
+#press{position:absolute;left:50%;transform:translateX(-50%);bottom:110px;width:min(60vw,320px);display:none;align-items:center;gap:8px;font-weight:900;font-size:13px}
+#press.on{display:flex}
+#press div{flex:1;height:12px;border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden}
+#press i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd166,#ff4f6d)}
+#tint2{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse at center,rgba(255,255,255,.04),rgba(240,235,255,.45))}
+#where{font-size:13px;margin-top:4px;color:#ffe3ec;font-weight:700}
+#banner{position:absolute;left:0;right:0;top:15%;text-align:center;opacity:0;pointer-events:none}
+#banner b{display:block;font-size:clamp(26px,6vw,40px);font-weight:900;text-shadow:0 3px 16px rgba(0,0,0,.7)}
+#banner span{display:block;font-size:clamp(13px,3vw,16px);font-weight:700;color:#ffd6e2;text-shadow:0 2px 8px #000}
+#banner.on{animation:ban 3.2s ease-out forwards}
+@keyframes ban{0%{opacity:0;transform:translateY(10px)}12%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0}}
+#drill{position:absolute;left:50%;transform:translateX(-50%);bottom:110px;width:min(70vw,360px);display:none;align-items:center;gap:8px;font-weight:900;font-size:14px}
+#drill.on{display:flex}
+#drill div{flex:1;height:16px;border-radius:8px;background:rgba(255,255,255,.15);overflow:hidden;border:1px solid rgba(255,240,180,.5)}
+#drill i{display:block;height:100%;width:0;background:linear-gradient(90deg,#fff3b0,#ffd166)}
+#track{background:linear-gradient(90deg,rgba(255,150,190,.45) 0 14.6%,rgba(255,240,250,.4) 14.6% 32.7%,rgba(200,40,70,.5) 32.7% 57.7%,rgba(180,90,200,.55) 57.7% 62.3%,rgba(255,200,170,.45) 62.3% 80.8%,rgba(255,150,90,.5) 80.8% 100%)!important}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(20,0,6,.75) 100%);z-index:1}
+#tint{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center,rgba(120,255,60,.05),rgba(110,255,40,.35))}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:2;display:none}
+#hud.on{display:block}
+#rank{position:absolute;left:max(16px,env(safe-area-inset-left));top:14px;font-weight:900;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+#rank b{font-size:clamp(44px,9vw,72px);color:var(--gold)}
+#rank small{font-size:20px;opacity:.8}
+#clock{font-size:15px;margin-top:4px;opacity:.85;font-variant-numeric:tabular-nums}
+#track{position:absolute;left:50%;transform:translateX(-50%);top:16px;width:min(46vw,460px);height:8px;border-radius:4px;background:rgba(255,255,255,.15)}
+#track .egg{position:absolute;right:-12px;top:-8px;font-size:18px}
+#track i{position:absolute;top:-4px;width:12px;height:12px;margin-left:-6px;border-radius:50%;border:2px solid rgba(0,0,0,.5)}
+#track i.me{width:18px;height:18px;top:-7px;margin-left:-9px;border:3px solid #fff;z-index:2}
+#board{position:absolute;right:max(14px,env(safe-area-inset-right));top:12px;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;min-width:150px}
+#board div{display:flex;gap:6px;align-items:center;padding:1px 0;white-space:nowrap}
+#board div.me{color:var(--gold);font-weight:900}
+#board span.d{width:9px;height:9px;border-radius:50%;flex:none}
+#board em{font-style:normal;opacity:.6;width:1.4em;text-align:right}
+#center{position:absolute;left:0;right:0;top:34%;text-align:center;font-weight:900;font-size:clamp(48px,14vw,120px);text-shadow:0 4px 30px rgba(255,80,130,.6);transition:transform .15s}
+#sub{position:absolute;left:0;right:0;top:calc(34% + clamp(60px,15vw,130px));text-align:center;font-weight:700;font-size:clamp(15px,3.6vw,20px);text-shadow:0 2px 8px #000}
+#lobby{position:absolute;left:50%;transform:translateX(-50%);top:44px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 16px;font-weight:700;font-size:14px;text-align:center;white-space:nowrap}
+#toasts{position:absolute;left:0;right:0;top:22%;display:flex;flex-direction:column;align-items:center;gap:6px}
+#toasts div{background:rgba(20,4,12,.65);padding:6px 16px;border-radius:999px;font-weight:900;font-size:clamp(14px,3.4vw,18px);animation:tin .2s ease-out}
+@keyframes tin{from{transform:scale(.7);opacity:0}}
+#bottom{position:absolute;left:50%;transform:translateX(-50%);bottom:max(18px,env(safe-area-inset-bottom));width:min(70vw,380px);text-align:center}
+#spd{font-weight:900;font-size:clamp(22px,5vw,30px);font-variant-numeric:tabular-nums;text-shadow:0 2px 10px #000}
+#spd small{font-size:13px;opacity:.75}
+#stam{height:10px;border-radius:5px;background:rgba(255,255,255,.15);overflow:hidden;margin-top:4px}
+#stam i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#4de1ff,#a6fff4);border-radius:5px}
+#stamL{font-size:11px;opacity:.75;margin-top:3px}
+.ov{position:fixed;inset:0;z-index:5;display:none;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.ov.on{display:flex}
+.card{width:min(520px,100%);background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:22px;padding:24px 22px;text-align:center;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+h1{font-size:clamp(36px,10vw,60px);margin:0;font-weight:900;line-height:1.1;background:linear-gradient(90deg,#fff,#ffb3cc 50%,#ffd166);-webkit-background-clip:text;background-clip:text;color:transparent}
+.card{position:relative}
+.lang{position:absolute;right:14px;top:14px;appearance:none;border:1px solid var(--line);background:rgba(0,0,0,.3);color:var(--fg);font:inherit;font-size:13px;font-weight:700;border-radius:999px;padding:6px 12px;cursor:pointer}
+.tag{display:inline-block;font-weight:900;font-size:13px;letter-spacing:.2em;color:#1e0509;background:var(--gold);border-radius:6px;padding:2px 8px;margin-bottom:8px}
+.lead{color:var(--muted);margin:10px 0 16px;line-height:1.7;font-size:14px}
+input{font:inherit;font-size:17px;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.35);color:#fff;text-align:center;outline:none;user-select:text;-webkit-user-select:text}
+input:focus{border-color:var(--accent)}
+.sw{display:flex;gap:10px;justify-content:center;margin:12px 0 4px;flex-wrap:wrap}
+.sw i{width:32px;height:32px;border-radius:50%;cursor:pointer;border:3px solid transparent;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
+.sw i.on{border-color:#fff}
+.btn{appearance:none;border:0;border-radius:999px;padding:14px 28px;font:inherit;font-weight:900;font-size:18px;background:linear-gradient(180deg,#ff86ad,#ff4680);color:#fff;cursor:pointer;margin-top:14px;box-shadow:0 6px 0 #9a1f4b;width:100%}
+.btn:active{transform:translateY(3px);box-shadow:0 3px 0 #9a1f4b}
+.btn.sub{background:transparent;border:1px solid var(--line);box-shadow:none;font-size:15px;padding:10px 20px;margin-top:10px}
+.credit{margin:14px 0 0;font-size:11px;color:var(--muted);opacity:.7}
+.credit a{color:inherit}
+.winAsk{font-weight:900;color:var(--gold);margin:16px 0 8px}
+.row2{display:flex;gap:10px}.row2 .btn{margin-top:10px}
+.fameT{font-size:clamp(22px,6vw,30px);font-weight:900;margin:0 0 10px}
+#fameList{max-height:60vh;overflow-y:auto;text-align:left;user-select:text;-webkit-user-select:text;touch-action:pan-y}
+.fm{padding:10px 4px;border-bottom:1px solid var(--line)}
+.fh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-size:14px}
+.fl{font-size:20px}.fc{color:var(--muted);font-size:12px}.fd{color:var(--muted);font-size:11px;margin-left:auto}
+.fm p{margin:4px 0 0;font-size:15px;line-height:1.6;word-break:break-word}
+#fame{z-index:7}
+/* ゴール後のセレモニー：結果は横（スマホは下）に寄せて、胎児化を見せる */
+#result{pointer-events:none;align-items:flex-start;justify-content:flex-end;padding:12px}
+#result .card{pointer-events:auto;width:min(380px,100%);max-height:calc(100vh - 24px);overflow-y:auto;padding:16px 16px;margin:0;background:rgba(28,6,14,.8);text-align:left}
+#result #resTitle{font-size:clamp(20px,5vw,26px);text-align:center}
+#result table{font-size:13px}#result td{padding:4px}
+#resTable tr:nth-child(n+5){display:none}
+#chatBox{margin-top:10px}
+#chatList{height:120px;overflow-y:auto;font-size:13px;line-height:1.5;background:rgba(0,0,0,.25);border-radius:10px;padding:6px 8px;user-select:text;-webkit-user-select:text;touch-action:pan-y}
+/* 定型文は「…」ボタンからコマンドのように選ぶ */
+.chatRow{position:relative}
+.more{appearance:none;flex:none;width:40px;height:38px;margin-top:8px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:#fff;font:inherit;font-weight:900;font-size:18px;cursor:pointer;line-height:1}
+#presets{display:none;position:absolute;left:0;right:0;bottom:calc(100% + 4px);z-index:2;flex-direction:row;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:thin;background:rgba(20,4,12,.96);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#presets.on{display:flex}
+#presets button{appearance:none;flex:none;white-space:nowrap;border:1px solid var(--line);background:rgba(255,255,255,.06);color:#fff;font:inherit;font-size:14px;border-radius:999px;padding:7px 12px;cursor:pointer}
+#presets button:hover,#presets button:active{background:rgba(255,120,170,.22)}
+#chatBox .row2{align-items:center}#chatBox input{font-size:14px;padding:8px 10px;text-align:left}#chatBox .row2 .btn{width:auto;padding:9px 16px;font-size:14px;margin-top:8px;flex:none}
+#bReady{margin-top:6px}
+#cereTop{position:absolute;left:0;right:0;top:12px;display:none;flex-direction:column;align-items:center;text-align:center;padding:0 16px;pointer-events:none}
+body.cere #cereTop{display:flex}
+body.cere #rank,body.cere #track,body.cere #board,body.cere #bottom,body.cere #drill,body.cere #where{display:none}
+#specBar{position:absolute;left:50%;transform:translateX(-50%);bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100vw - 32px),460px);display:none;flex-direction:column;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;text-align:center;pointer-events:auto}
+#specBar b{font-size:15px}#specBar small{color:var(--muted);font-size:12px}
+#specBar .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#specBar button{font:inherit;font-weight:700;font-size:13px;color:#fff;background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:10px;padding:6px 12px;cursor:pointer}
+#specBar #bSolo{background:rgba(255,107,157,.3);border-color:#ff6b9d}
+body.spec #specBar{display:flex}
+body.spec #rank,body.spec #bottom,body.spec #press,body.spec #drill,body.cere #specBar{display:none}
+#winBanner{max-width:min(620px,92vw);background:rgba(20,4,12,.55);border-radius:16px;padding:10px 18px}
+.wn{font-size:15px;font-weight:700}.wq{margin:4px 0 0;font-size:clamp(18px,4.4vw,26px);font-weight:900;line-height:1.4;word-break:break-word}.wq.dim{opacity:.6;font-size:15px}
+#stage{margin-top:10px}#stage b{display:block;font-size:clamp(22px,5vw,32px);font-weight:900;text-shadow:0 3px 14px rgba(0,0,0,.7)}#stage span{font-size:13px;color:#ffd6e2;text-shadow:0 2px 8px #000}
+@media (min-width:761px){body.cere #cereTop{right:400px}}
+@media (max-width:760px){#result{align-items:flex-end;justify-content:center;padding:0}#result .card{width:100%;max-height:50vh;border-radius:18px 18px 0 0}#chatList{height:84px}#cereTop{top:8px}#winBanner{padding:6px 12px}}
+#practiceSel{display:none;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+#practiceSel.on{display:grid}
+#practiceSel p{grid-column:1/-1;margin:0;font-size:13px;color:var(--muted)}
+#practiceSel button{appearance:none;display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#fff;font:inherit;border-radius:12px;padding:10px 6px;cursor:pointer}
+#practiceSel button:hover{background:rgba(255,120,170,.18)}
+#practiceSel button b{font-size:14px}#practiceSel button span{font-size:12px}
+#practiceSel button:last-child{grid-column:1/-1}
+.howto{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;text-align:left;font-size:13px;margin:16px 0 0;color:var(--muted)}
+.howto b{color:var(--fg);white-space:nowrap}
+#msg{min-height:1.4em;margin-top:10px;color:var(--gold);font-weight:700;font-size:14px}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:15px}
+td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left}
+td:first-child{font-weight:900;width:2.5em;text-align:center}
+td.t{text-align:right;font-variant-numeric:tabular-nums}
+tr.me td{color:var(--gold);font-weight:900}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.cpu{font-size:10px;opacity:.6;border:1px solid currentColor;border-radius:4px;padding:0 3px;margin-left:4px}
+#resTitle{font-size:clamp(28px,8vw,44px);font-weight:900;margin:0}
+#resNext{color:var(--muted);margin-top:10px;font-size:14px}
+#boostBtn{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(24px,env(safe-area-inset-bottom));width:96px;height:96px;border-radius:50%;border:2px solid rgba(160,255,255,.7);background:rgba(60,200,255,.25);color:#fff;font:inherit;font-weight:900;font-size:15px;z-index:3;display:none;touch-action:none}
+#boostBtn.on{background:rgba(60,200,255,.55)}
+#joy{position:fixed;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.35);z-index:3;display:none;pointer-events:none}
+#joy i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:rgba(255,255,255,.35)}
+@media (max-width:640px){#board{display:none}#track{top:20px;width:52vw}#lobby{top:44px;font-size:12px}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script src="core.js?v=20261016052112"></script>
+</head>
+<body>
+<div id="vig"></div>
+<div id="tint"></div>
+<div id="tint2"></div>
+<div id="flash"></div>
+<button id="mute" title="音のON/OFF（M）">🔊</button>
+
+<div id="hud">
+  <div id="rank"><b id="rk">-</b><small id="rkN">/8</small><div id="clock">0:00.00</div><div id="where"></div></div>
+  <div id="track"><span class="egg">🥚</span></div>
+  <div id="lobby"></div>
+  <div id="board"></div>
+  <div id="toasts"></div>
+  <div id="press"><span data-i18n="press">圧力</span><div><i id="pressI"></i></div></div>
+  <div id="banner"></div>
+  <div id="cereTop"><div id="winBanner"></div><div id="stage"></div></div>
+  <div id="drill"><span id="drillL">結合</span><div><i id="drillI"></i></div></div>
+  <div id="center"></div>
+  <div id="sub"></div>
+  <div id="specBar"><b id="specTxt"></b><small data-i18n="specSub">次のレースから参加します</small><div class="row"><button id="specPrev">◀</button><button id="specNext">▶</button><button id="bSolo" data-i18n="solo">待たずにCPUと走る</button></div></div>
+  <div id="bottom">
+    <div id="spd">0 <small>μm/s</small></div>
+    <div id="stam"><i id="stamI"></i></div>
+    <div id="stamL" data-i18n="stam">ブースト（スペース / 左クリック長押し）</div>
+  </div>
+</div>
+
+<div class="ov on" id="title"><div class="card">
+  <button class="lang" id="bLang" data-i18n="langBtn">🌐 English</button>
+  <span class="tag" data-i18n="tag">1 in 300M</span>
+  <h1 data-i18n="h1">3億分の1</h1>
+  <p class="lead" data-i18n="lead">一番乗りだけが、いのちになる。</p>
+  <input id="name" maxlength="14" placeholder="なまえ（14文字まで）">
+  <div class="sw" id="sw"></div>
+  <button class="btn" id="bOnline" data-i18n="online">発射</button>
+  <button class="btn sub" id="bOffline" data-i18n="offline">練習</button>
+  <div id="practiceSel"></div>
+  <button class="btn sub" id="bFame" data-i18n="fameBtn">🏆 受精者たちの声</button>
+  <div id="msg"></div>
+  <p class="credit">Sound: <a href="https://otologic.jp" target="_blank" rel="noopener">OtoLogic</a> (CC BY 4.0)<br>© 2026 <a href="https://satoru.net/" target="_blank" rel="noopener">satoru.net</a></p>
+</div></div>
+
+<div class="ov" id="result"><div class="card">
+  <p id="resTitle"></p>
+  <table id="resTable"></table>
+  <div id="winForm" style="display:none">
+    <p class="winAsk" data-i18n="winAsk">🥇 1位の特権！世界にメッセージを残そう</p>
+    <input id="winMsg" maxlength="80" data-i18n-ph="msgPh">
+    <p id="winFrom" class="credit"></p>
+    <div class="row2"><button class="btn" id="bPost" data-i18n="post">残す</button><button class="btn sub" id="bSkip" data-i18n="skip">スキップ</button></div>
+  </div>
+  <div id="chatBox">
+    <div id="chatList"></div>
+    <div class="row2 chatRow"><button class="more" id="bMore" title="定型文">…</button><input id="chatIn" maxlength="40" data-i18n-ph="chatPh"><button class="btn" id="bChat" data-i18n="sendChat">送信</button><div id="presets"></div></div>
+  </div>
+  <p id="resNext"></p>
+  <button class="btn" id="bReady" data-i18n="ready">準備OK</button>
+  <button class="btn sub" id="bFame2" data-i18n="fameBtn">🏆 受精者たちの声</button>
+  <button class="btn sub" id="bLeave" data-i18n="leave">タイトルにもどる</button>
+</div></div>
+
+<div class="ov" id="fame"><div class="card">
+  <p class="fameT" data-i18n="fameTitle">🏆 受精者たちの声</p>
+  <div id="fameList"></div>
+  <button class="btn sub" id="bFameClose" data-i18n="close">閉じる</button>
+</div></div>
+
+<button id="boostBtn">BOOST</button>
+<div id="joy"><i></i></div>
+
+<script type="module" src="game.js?v=20261016052112"></script>
+</body>
+</html>

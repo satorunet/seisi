@@ -1,0 +1,10 @@
+{
+  "name": "seisi-race-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "いのちのレース オンライン対戦サーバ",
+  "main": "server.js",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
