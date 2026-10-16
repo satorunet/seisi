@@ -5,7 +5,7 @@
   else root.SeisiCore = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  const MAX = 8;          // 1レースの参加数（人間 + CPU）
+  const MAX = 8;          // 1レースの最低人数（足りない分は CPU）。人間は何人でも入れる
   const L = 2600;         // ゴール（卵子）までの距離
   const S0 = 60;          // スタート地点より後ろの余白
   const WAIT_MS = 12000;  // 最初の参加者からスタートまで
@@ -102,8 +102,18 @@
   }
 
   // スタートの並び（管の中に 3x3）
-  function gridPos(i) { return { u: ((i % 3) - 1) * 2.9, v: (Math.floor(i / 3) - 1) * 2.9 }; }
+  // スタート位置：9人までは 3×3 の格子、それより多いときは発射口の中にひまわり状に詰める（全員 s=0 で公平）
+  function gridPos(i) {
+    if (i < 9) return { u: ((i % 3) - 1) * 2.9, v: (Math.floor(i / 3) - 1) * 2.9 };
+    const k = i - 9, a = k * 2.39996, r = 1.1 + 3.6 * ((k * .618034 + .31) % 1);
+    return { u: Math.cos(a) * r, v: Math.sin(a) * r };
+  }
   const LAUNCH_BURST = 40;   // 発射の瞬間の初速ボーナス
+  // 不正防止：クライアントが送る位置の上限（記録はサーバの時計で測るので、ここで速さを抑えれば縮められない）
+  // 全部の糖・リング・蠕動波・スリップストリームを拾い続ける理論上の最速でも平均 55 前後
+  const LIM_AVG = 60, LIM_HEAD = 60;     // （Y精子の基本速度ぶん少し余裕をみている）     // スタートからの累計：s ≤ 58 × 秒 + 60
+  const LIM_RATE = 85, LIM_CAP = 150;    // 短い区間：毎秒 85 ずつたまる枠（ラグで遅れて届いた分は 150 まで許す）
+  const DRILL_MIN_MS = 900;              // 卵子に着いてから受精までの最短（連打し続けても約 1.3 秒）
 
   // 免疫総攻撃中は白血球の時間が早く進む
   function immuneTime(c, t) { let x = t; for (const g of c.surges) x += .7 * clamp(t - g.t, 0, g.dur); return x; }
@@ -151,6 +161,18 @@
   const BOT_WIN_LINES = 5;      // CPU が1位のときのセリフの数（文言はクライアント側）
   const CERE_MS = 30000;        // ゴール後のセレモニー（胎児化を見ながらひとこと）
   const BOT_COLORS = ['#ff6b6b', '#4dd4ff', '#ffd23f', '#9b7bff', '#5cff9d', '#ff9f43', '#ff7ad9', '#a0e7ff'];
+  // X精子 / Y精子（スタートでランダム）：Y は速いが打たれ弱い、X は遅いが粘り強い（ゲーム的な誇張）
+  const CHR = {
+    X: { base: 25.2, acid: .72, mucus: .65, stun: .5, hitSpd: .35, regen: 10.5 },
+    Y: { base: 27, acid: .5, mucus: .5, stun: .9, hitSpd: .2, regen: 9 },
+  };
+  const randChr = () => Math.random() < .5 ? 'X' : 'Y';
+  const TWIN_P = 1 / 20;
+  // アイコン（精子の頭に付ける写真）：ブラウザで 64×64 の JPEG に縮めたものだけ受け付ける
+  const ICON_MAX = 12000;
+  // face = { icon, wrap }：wrap は写真を頭に巻きつける広さ（角度。小さい丸 .9 〜 頭まるごと 3）
+  const okFace = f => { const icon = okIcon(f && f.icon), w = +(f && f.wrap); return icon ? { icon, wrap: w >= .9 && w <= 3 ? Math.round(w * 100) / 100 : 1.65 } : { icon: '', wrap: undefined }; };
+  const okIcon = s => typeof s === 'string' && s.length <= ICON_MAX && /^data:image\/(jpeg|webp|png);base64,[A-Za-z0-9+/]+=*$/.test(s) ? s : '';        // 二卵性双生児（卵子が2個 → 2匹まで受精できる）
 
   class Room {
     constructor(id, now, opt) {
@@ -160,41 +182,42 @@
     }
     humans() { return [...this.players.values()].filter(p => !p.bot); }
     headcount() { return this.humans().length + this.specs.size; }   // 観戦中の人も数える
-    pub(p) { return { id: p.id, name: p.name, color: p.color, bot: !!p.bot }; }
+    pub(p) { return { id: p.id, name: p.name, color: p.color, bot: !!p.bot, chr: p.chr, icon: p.icon || undefined, wrap: p.icon ? p.wrap : undefined }; }
     // レース中は位置も送る（途中参戦・観戦用）
-    pubPos(q) { return Object.assign(this.pub(q), { s: +q.s.toFixed(2), u: +q.u.toFixed(2), v: +q.v.toFixed(2), spd: q.spd, b: q.b, place: q.place, time: q.fin }); }
+    pubPos(q) { return Object.assign(this.pub(q), { s: +q.s.toFixed(2), u: +q.u.toFixed(2), v: +q.v.toFixed(2), spd: q.spd, b: q.b, place: q.place, time: q.fin, fert: q.fert }); }
     roomMsg(p, now, extra) {
-      return Object.assign({ t: 'room', id: this.id, you: p.id, seed: this.seed, state: this.state, startAt: this.startAt, now,
+      return Object.assign({ t: 'room', id: this.id, you: p.id, seed: this.seed, state: this.state, startAt: this.startAt, now, twins: this.twins,
         players: [...this.players.values()].map(q => this.state === 'race' ? this.pubPos(q) : this.pub(q)) }, extra);
     }
     // 途中参戦で乗り移れる CPU（まだ走っていて、ゴールまで余裕がある）
     possessable() { return [...this.players.values()].filter(p => p.bot && p.fin == null && p.s < L - 300); }
     // レース中に来た人は、走っている CPU に憑依してその場から参戦
-    possess(name, color, send, now, country) {
+    possess(name, color, send, now, country, face) {
       const cand = this.possessable(); if (!cand.length) return 0;
       const b = cand[(Math.random() * cand.length) | 0];
       this.players.delete(b.id);
       const id = this.nextId++;
-      const p = this.mkHuman(id, name, color, send, country);
-      Object.assign(p, { s: b.s, u: b.u, v: b.v, spd: b.spd });
+      const p = this.mkHuman(id, name, color, send, country, face);
+      // 途中参戦は CPU の走りを引き継ぐので記録にはしない
+      Object.assign(p, { s: b.s, u: b.u, v: b.v, spd: b.spd, chr: b.chr, possessed: true });
       this.players.set(id, p);
       for (const q of this.players.values()) if (q !== p && q.send) { q.send({ t: 'del', id: b.id }); q.send({ t: 'add', p: this.pubPos(p), from: b.name }); }
       for (const q of this.specs.values()) { q.send({ t: 'del', id: b.id }); q.send({ t: 'add', p: this.pubPos(p), from: b.name }); }
       send(this.roomMsg(p, now, { from: b.name }));
       return id;
     }
-    mkHuman(id, name, color, send, country) {
-      return { id, name: String(name || 'ななしの精子').slice(0, 14), color: /^#[0-9a-f]{6}$/i.test(color) ? color : '#ffffff', bot: false, send, s: 0, u: 0, v: 0, spd: 0, b: 0, fin: null, place: 0, country: /^[A-Z]{2}$/.test(country || '') ? country : '' };
+    mkHuman(id, name, color, send, country, face) {
+      return { id, name: String(name || 'ななしの精子').slice(0, 14), color: /^#[0-9a-f]{6}$/i.test(color) ? color : '#ffffff', bot: false, send, s: 0, u: 0, v: 0, spd: 0, b: 0, fin: null, place: 0, country: /^[A-Z]{2}$/.test(country || '') ? country : '', chr: randChr(), ...okFace(face) };
     }
     broadcast(m) { for (const p of this.players.values()) if (p.send) p.send(m); for (const p of this.specs.values()) p.send(m); }
     // レース中に来た人は観戦して、次のレースから参加
     specMsg(now) {
-      return { t: 'spec', id: this.id, seed: this.seed, state: this.state, startAt: this.startAt, nextAt: this.nextAt, now,
+      return { t: 'spec', id: this.id, seed: this.seed, state: this.state, startAt: this.startAt, nextAt: this.nextAt, now, twins: this.twins,
         players: [...this.players.values()].map(q => this.pubPos(q)) };
     }
-    addSpectator(name, color, send, now, country) {
+    addSpectator(name, color, send, now, country, face) {
       const id = this.nextId++;
-      this.specs.set(id, { id, spec: true, name: String(name || 'ななしの精子').slice(0, 14), color: /^#[0-9a-f]{6}$/i.test(color) ? color : '#ffffff', send, country: /^[A-Z]{2}$/.test(country || '') ? country : '', ready: false });
+      this.specs.set(id, { id, spec: true, name: String(name || 'ななしの精子').slice(0, 14), color: /^#[0-9a-f]{6}$/i.test(color) ? color : '#ffffff', send, country: /^[A-Z]{2}$/.test(country || '') ? country : '', ready: false, ...okFace(face) });
       send(this.specMsg(now));
       if (this.state === 'result' && this.lastRes) send(Object.assign({}, this.lastRes, { now }));
       return id;
@@ -202,17 +225,19 @@
     reset(now, wait) {
       // 練習ではコース（難易度）を指定できる
       do { this.seed = (Math.random() * 1e9) | 0; } while (this.opt.diffLv && pickDiff(this.seed).lv !== this.opt.diffLv);
+      // 双子チャンス：卵子が2個（2匹まで受精）
+      this.twins = Math.random() < TWIN_P;
+      this.eggs = this.twins ? 2 : 1; this.fertN = 0;
       this.state = 'wait'; this.course = makeCourse(this.seed);
       this.startAt = now + wait; this.firstFin = 0; this.finCount = 0; this.lastSnap = 0; this.lastTick = now; this.nextAt = 0; this.winnerPending = false; this.botChats = [];
       for (const p of [...this.players.values()]) {
         if (p.bot) this.players.delete(p.id);
-        else Object.assign(p, { s: 0, u: 0, v: 0, spd: 0, b: 0, fin: null, place: 0, ready: false });
+        else Object.assign(p, { s: 0, u: 0, v: 0, spd: 0, b: 0, fin: null, place: 0, ready: false, possessed: false, lim: LIM_HEAD, limAt: 0, reachAt: 0, fert: false, chr: randChr() });
       }
       // 観戦していた人をレースに入れる
       for (const sp of this.specs.values()) {
-        if (this.players.size >= MAX) break;
         this.specs.delete(sp.id);
-        this.players.set(sp.id, { id: sp.id, name: sp.name, color: sp.color, bot: false, send: sp.send, country: sp.country, lastChat: sp.lastChat, s: 0, u: 0, v: 0, spd: 0, b: 0, fin: null, place: 0, ready: false });
+        this.players.set(sp.id, { id: sp.id, name: sp.name, color: sp.color, bot: false, send: sp.send, country: sp.country, uid: sp.uid, lastChat: sp.lastChat, icon: sp.icon, wrap: sp.wrap, s: 0, u: 0, v: 0, spd: 0, b: 0, fin: null, place: 0, ready: false, chr: randChr() });
       }
       this.lastRes = null;
       this.fillBots();
@@ -229,19 +254,19 @@
         let name; do { name = BOT_NAMES[(Math.random() * BOT_NAMES.length) | 0]; } while (used.has(name) && used.size < BOT_NAMES.length);
         used.add(name);
         const id = this.nextId++;
-        this.players.set(id, { id, name, color: BOT_COLORS[id % BOT_COLORS.length], bot: true, s: 0, u: 0, v: 0, spd: 0, b: 0, fin: null, place: 0,
-          base: 26.5 + (Math.random() * 4.5 - 2), ph: Math.random() * 6, bt: 1 + Math.random() * 3, boostT: 0, burst: 0, tu: 0, tv: 0, skill: .4 + Math.random() * .5, nextRing: 0 });
+        const chr = randChr();
+        this.players.set(id, { id, name, color: BOT_COLORS[id % BOT_COLORS.length], bot: true, chr, s: 0, u: 0, v: 0, spd: 0, b: 0, fin: null, place: 0,
+          base: 26.5 + (Math.random() * 4.5 - 2) + (chr === 'Y' ? 1 : -.8), ph: Math.random() * 6, bt: 1 + Math.random() * 3, boostT: 0, burst: 0, tu: 0, tv: 0, skill: .4 + Math.random() * .5, nextRing: 0 });
       }
     }
-    addHuman(name, color, send, now, country) {
+    addHuman(name, color, send, now, country, face) {
       if (this.players.size >= MAX) { const bot = [...this.players.values()].find(p => p.bot); if (bot) { this.players.delete(bot.id); this.broadcast({ t: 'del', id: bot.id }); } }
       const id = this.nextId++;
-      const p = this.mkHuman(id, name, color, send, country);
+      const p = this.mkHuman(id, name, color, send, country, face);
       this.players.set(id, p);
       this.assignGrid();
       for (const q of this.players.values()) if (q !== p && q.send) q.send({ t: 'add', p: this.pub(p) });
       send(this.roomMsg(p, now));
-      if (this.humans().length >= MAX) this.startAt = Math.min(this.startAt, now + 3000);
       return id;
     }
     removeHuman(id, now) {
@@ -258,14 +283,15 @@
       if (m.t === 'st' && this.state === 'race' && p.fin == null) {
         const s = +m.s, u = +m.u, v = +m.v;
         if (!isFinite(s) || !isFinite(u) || !isFinite(v)) return;
-        p.s = clamp(s, 0, L); p.u = clamp(u, -60, 60); p.v = clamp(v, -60, 60); p.spd = clamp(+m.spd || 0, 0, 120); p.b = m.b ? 1 : 0;
-      } else if (m.t === 'fin' && this.state === 'race' && p.fin == null && p.s >= L - 15) {
+        p.s = this.limitS(p, clamp(s, 0, L), now); p.u = clamp(u, -60, 60); p.v = clamp(v, -60, 60); p.spd = clamp(+m.spd || 0, 0, 120); p.b = m.b ? 1 : 0;
+        if (p.s >= L - 15 && !p.reachAt) p.reachAt = now;
+      } else if (m.t === 'fin' && this.state === 'race' && p.fin == null && p.s >= L - 15 && p.reachAt && now - p.reachAt >= DRILL_MIN_MS) {
         this.finish(p, now);
       } else if ((m.t === 'msg' || m.t === 'msgSkip') && p.token && m.token === p.token && now < p.tokenExp) {
         // 1位の人だけがメッセージを残せる（1回きり）
         p.token = null;
         const text = m.t === 'msg' ? String(m.text || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80) : '';
-        if (text && this.opt.onMessage) this.opt.onMessage({ name: p.name, country: p.country, text, time: Date.now(), ms: p.winMs, lv: p.winLv });
+        if (text && this.opt.onMessage) this.opt.onMessage({ name: p.name, country: p.country, text, time: Date.now(), ms: p.winMs, lv: p.winLv, icon: p.icon || undefined, color: p.color });
         if (p.send) p.send({ t: 'msgOk', posted: !!text });
         this.broadcast(text ? { t: 'winMsg', id: p.id, name: p.name, country: p.country, text } : { t: 'winMsg', id: p.id, skip: true });
       } else if (m.t === 'chat' && (this.state === 'result' || this.state === 'wait') && now - (p.lastChat || 0) > 1200) {
@@ -281,17 +307,40 @@
         p.send && p.send({ t: 'pong', c: m.c, now });
       }
     }
+    // 送られてきた位置を、ありえる速さの範囲におさえる（後ろに戻るのは自由）
+    limitS(p, s, now) {
+      if (s <= p.s) return s;
+      const t = Math.max(0, now - this.startAt) / 1000;
+      p.lim = Math.min(LIM_CAP, (p.lim == null ? LIM_HEAD : p.lim) + Math.max(0, now - (p.limAt || this.startAt)) / 1000 * LIM_RATE); p.limAt = now;
+      let ns = Math.min(s, p.s + p.lim, LIM_AVG * t + LIM_HEAD);
+      // 卵管口ゲート：閉じているあいだは通れない（通信の遅れぶん 1 秒さかのぼって、どこかで開いていれば OK）
+      const g = this.course.gate.s;
+      if (p.s < g && ns >= g) { let open = false; for (let k = 0; k <= 4 && !open; k++) open = gateOpen(this.course, t - k * .25) >= .5; if (!open) ns = g - .6; }
+      ns = Math.max(ns, p.s);
+      p.lim -= ns - p.s;
+      return ns;
+    }
+    // 卵子に入りきった順にゴール。卵子の数（ふだん1・双子なら2）までが受精
     finish(p, now) {
-      p.fin = now - this.startAt; p.place = ++this.finCount; p.s = L;
+      const fert = this.fertN < this.eggs;
+      p.fert = fert; p.fin = now - this.startAt;
+      p.place = ++this.finCount; p.s = L;
       if (!this.firstFin) this.firstFin = now;
-      if (!p.bot && p.place === 1 && this.opt.allowMsg) {
+      if (fert) this.fertN++;
+      // 自己ベスト・ランキング（サーバの時計で測ったタイムだけ）
+      if (!p.bot && !p.possessed && p.uid && this.opt.onRecord) {
+        const ms = p.fin;
+        const r = this.opt.onRecord({ uid: p.uid, name: p.name, country: p.country, lv: this.course.diff.lv, ms, chr: p.chr });
+        if (r && p.send) p.send(Object.assign({ t: 'rec' }, r));
+      }
+      if (!p.bot && fert && this.fertN === 1 && this.opt.allowMsg) {
         p.token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); p.tokenExp = now + 10 * 60000;
         p.winMs = p.fin; p.winLv = this.course.diff.lv; this.winnerPending = true;
         if (p.send) p.send({ t: 'win', token: p.token });
       }
-      this.broadcast({ t: 'fin', id: p.id, place: p.place, time: p.fin });
+      this.broadcast({ t: 'fin', id: p.id, place: p.place, time: p.fin, fert: p.fert });
     }
-    stepBot(p, dt, t) {
+    stepBot(p, dt, t, now) {
       const c = this.course;
       if (p.fin != null) { p.spd *= .96; return; }
       // 卵子に着いたら先体反応（透明帯を溶かすのに数秒）
@@ -309,8 +358,9 @@
       if (ring && ring.s - p.s < 45 && p.skill > .55) { tu = ring.u; tv = ring.v; }
       if (p.s > AMP_S && p.skill > .5) { const o = trailAt(c, p.s + 10, {}); tu = o.u; tv = o.v; }
       let target = p.base + Math.sin(t * .35 + p.ph) * 1.6 + (p.boostT > 0 ? 11 : 0) + p.burst;
-      for (const a of c.acid) if (Math.abs(a.s - p.s) < a.r && Math.hypot(a.u - p.u, a.v - p.v) < a.r) target *= .8;
-      for (const m of c.mucus) if (Math.abs(m.s - p.s) < m.r && Math.hypot(m.u - p.u, m.v - p.v) < m.r) target *= .7;
+      const Y = p.chr === 'Y';
+      for (const a of c.acid) if (Math.abs(a.s - p.s) < a.r && Math.hypot(a.u - p.u, a.v - p.v) < a.r) target *= Y ? .72 : .85;
+      for (const m of c.mucus) if (Math.abs(m.s - p.s) < m.r && Math.hypot(m.u - p.u, m.v - p.v) < m.r) target *= Y ? .62 : .78;
       if (p.s > c.capa.s) target *= 1.08;
       const wf = waveFront(c, t); if (wf >= 0 && Math.abs(wf - p.s) < 12) target += 12;
       p.spd += (target - p.spd) * Math.min(1, dt * 1.5);
@@ -336,7 +386,10 @@
       }
       if (this.state === 'race') {
         const t = (now - this.startAt) / 1000;
-        for (const p of this.players.values()) if (p.bot) { this.stepBot(p, dt, t); if (p.fin == null && p.s >= L && p.drill >= p.drillNeed) this.finish(p, now); }
+        for (const p of this.players.values()) if (p.bot) {
+          this.stepBot(p, dt, t, now);
+          if (p.fin == null && p.s >= L && p.drill >= p.drillNeed) this.finish(p, now);
+        }
         if (now - this.lastSnap >= 80) {
           this.lastSnap = now;
           const arr = [];
@@ -355,14 +408,16 @@
     }
     endRace(now) {
       this.state = 'result'; this.nextAt = now + (this.opt.cere || CERE_MS);   // 胎児化を見ながらひとこと
-      const list = [...this.players.values()].sort((a, b) => (a.fin != null) !== (b.fin != null) ? (a.fin != null ? -1 : 1) : a.fin != null ? a.fin - b.fin : b.s - a.s);
-      const win = list[0] && list[0].fin != null ? list[0] : null;
-      this.broadcast(this.lastRes = { t: 'res', now, nextAt: this.nextAt, winner: win ? { id: win.id, writing: !!win.token, botLine: win.bot ? (Math.random() * BOT_WIN_LINES) | 0 : -1 } : null,
-        list: list.map((p, i) => ({ id: p.id, name: p.name, color: p.color, bot: !!p.bot, country: p.country || '', rank: i + 1, time: p.fin, s: Math.round(p.s) })) });
+      const list = [...this.players.values()].sort((a, b) => (a.fin != null) !== (b.fin != null) ? (a.fin != null ? -1 : 1) : a.fin != null ? a.place - b.place : b.s - a.s);
+      const win = list[0] && list[0].fert ? list[0] : null, twin = list[1] && list[1].fert ? list[1] : null;
+      this.broadcast(this.lastRes = { t: 'res', now, nextAt: this.nextAt, twins: this.twins,
+        winner: win ? { id: win.id, writing: !!win.token, botLine: win.bot ? (Math.random() * BOT_WIN_LINES) | 0 : -1, chr: win.chr } : null,
+        twin: twin ? { id: twin.id, chr: twin.chr } : null,
+        list: list.map((p, i) => ({ id: p.id, name: p.name, color: p.color, bot: !!p.bot, country: p.country || '', rank: i + 1, time: p.fin, fert: !!p.fert, chr: p.chr, s: Math.round(p.s) })) });
       // CPU もときどき一言
       this.botChats = list.filter(p => p.bot && Math.random() < .4).map(p => ({ id: p.id, at: now + 2500 + Math.random() * 18000, preset: p === win ? 'gg' : PRESETS[(Math.random() * PRESETS.length) | 0], sent: false }));
     }
   }
 
-  return { MAX, L, S0, PRESETS, CERE_MS, DIFFS, REGIONS, GATE_S, CAPA_S, AMP_S, pickDiff, regionAt, LAUNCH_BURST, gridPos, clamp, lerp, sstep, rng, radiusAt, makeCourse, wbcAt, abAt, gateOpen, waveFront, counterFlow, trailAt, surgeAt, immuneTime, Room };
+  return { CHR, MAX, L, S0, PRESETS, CERE_MS, DIFFS, REGIONS, GATE_S, CAPA_S, AMP_S, pickDiff, regionAt, LAUNCH_BURST, gridPos, clamp, lerp, sstep, rng, radiusAt, makeCourse, wbcAt, abAt, gateOpen, waveFront, counterFlow, trailAt, surgeAt, immuneTime, Room };
 });
